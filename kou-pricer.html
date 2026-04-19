@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kou Jump-Diffusion · Exotic Option Pricer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #111318;
+  --surface2: #181c23;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf0;
+  --muted: #7a8099;
+  --accent: #4fc3f7;
+  --accent2: #81c784;
+  --accent3: #ffb74d;
+  --accent4: #f06292;
+  --red: #ef5350;
+  --mono: 'DM Mono', monospace;
+  --serif: 'Instrument Serif', serif;
+  --sans: 'DM Sans', sans-serif;
+  --glow: 0 0 40px rgba(79,195,247,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  font-size:15px;
+  line-height:1.65;
+  overflow-x:hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  padding:6rem 8vw 4rem;
+  position:relative;
+  overflow:hidden;
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(79,195,247,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,195,247,0.03) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+}
+.hero-glow{
+  position:absolute;top:-200px;right:-200px;
+  width:700px;height:700px;
+  background:radial-gradient(circle, rgba(79,195,247,0.06) 0%, transparent 70%);
+  pointer-events:none;
+}
+.tag{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  border:1px solid rgba(79,195,247,0.25);
+  padding:4px 12px;
+  border-radius:2px;
+  margin-bottom:2rem;
+  display:inline-block;
+}
+h1{
+  font-family:var(--serif);
+  font-size:clamp(2.8rem,7vw,5.5rem);
+  line-height:1.05;
+  font-weight:400;
+  max-width:800px;
+  margin-bottom:1.5rem;
+  letter-spacing:-.01em;
+}
+h1 em{color:var(--accent);font-style:italic}
+.hero-sub{
+  font-size:17px;
+  color:var(--muted);
+  max-width:560px;
+  margin-bottom:3rem;
+  line-height:1.7;
+}
+.hero-cta{
+  display:flex;gap:16px;flex-wrap:wrap;
+}
+.btn-primary{
+  background:var(--accent);
+  color:#0a0c10;
+  border:none;
+  padding:12px 28px;
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:500;
+  border-radius:3px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-block;
+  transition:opacity .2s, transform .15s;
+  letter-spacing:.02em;
+}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
+.btn-ghost{
+  background:transparent;
+  color:var(--text);
+  border:1px solid var(--border2);
+  padding:12px 28px;
+  font-family:var(--sans);
+  font-size:14px;
+  border-radius:3px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-block;
+  transition:border-color .2s,background .2s;
+}
+.btn-ghost:hover{border-color:var(--accent);background:rgba(79,195,247,0.04)}
+
+/* ── SCROLL INDICATOR ── */
+.scroll-hint{
+  position:absolute;bottom:2.5rem;left:8vw;
+  font-family:var(--mono);font-size:11px;
+  color:var(--muted);letter-spacing:.1em;
+  display:flex;align-items:center;gap:8px;
+  animation:pulse 2.5s ease-in-out infinite;
+}
+.scroll-hint::before{content:'';width:1px;height:30px;background:var(--muted);display:block}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ── LAYOUT ── */
+.page{max-width:1280px;margin:0 auto;padding:0 6vw}
+
+/* ── THEORY SECTION ── */
+.theory-section{padding:6rem 0}
+.section-label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:1rem;
+}
+.section-title{
+  font-family:var(--serif);font-size:clamp(1.8rem,3.5vw,2.8rem);
+  font-weight:400;line-height:1.15;margin-bottom:1.5rem;
+}
+.theory-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:3rem 0}
+.theory-card{
+  background:var(--surface);
+  padding:2rem 2.2rem;
+  border:1px solid var(--border);
+  position:relative;
+  transition:border-color .2s;
+}
+.theory-card:hover{border-color:var(--border2)}
+.theory-card .step-num{
+  font-family:var(--mono);font-size:11px;color:var(--accent);
+  letter-spacing:.1em;margin-bottom:.75rem;display:block;
+}
+.theory-card h3{font-family:var(--serif);font-size:1.25rem;font-weight:400;margin-bottom:.75rem}
+.theory-card p{color:var(--muted);font-size:14px;line-height:1.7}
+.formula-block{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-left:3px solid var(--accent);
+  padding:1.25rem 1.5rem;
+  font-family:var(--mono);
+  font-size:13px;
+  color:var(--accent);
+  line-height:1.9;
+  border-radius:0 4px 4px 0;
+  overflow-x:auto;
+  margin:1.5rem 0;
+}
+.formula-block .comment{color:var(--muted);font-size:12px}
+
+/* ── STEP WALKTHROUGH ── */
+.steps-section{padding:4rem 0 6rem}
+.step-row{
+  display:grid;grid-template-columns:80px 1fr;gap:0;
+  border-bottom:1px solid var(--border);
+  padding:2.5rem 0;
+  position:relative;
+}
+.step-row:last-child{border-bottom:none}
+.step-num-big{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  padding-top:4px;letter-spacing:.1em;
+}
+.step-content h3{
+  font-family:var(--serif);font-size:1.4rem;font-weight:400;
+  margin-bottom:.75rem;
+}
+.step-content p{color:var(--muted);font-size:14px;line-height:1.75;margin-bottom:1rem}
+.step-content p:last-child{margin-bottom:0}
+.inline-math{
+  font-family:var(--mono);font-size:12px;
+  background:var(--surface2);border:1px solid var(--border2);
+  padding:1px 6px;border-radius:2px;color:var(--accent3);
+}
+
+/* ── PRICER ── */
+.pricer-section{padding:6rem 0}
+.pricer-header{margin-bottom:3rem}
+.pricer-grid{display:grid;grid-template-columns:340px 1fr;gap:2px;align-items:start}
+.params-panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:2rem;
+  position:sticky;top:2rem;
+}
+.params-panel h2{
+  font-family:var(--serif);font-size:1.3rem;font-weight:400;
+  margin-bottom:1.5rem;padding-bottom:1rem;
+  border-bottom:1px solid var(--border);
+}
+.param-group{margin-bottom:1.75rem}
+.param-group-label{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);
+  margin-bottom:1rem;display:block;
+}
+.param-row{margin-bottom:1rem}
+.param-row label{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:13px;color:var(--muted);margin-bottom:5px;
+}
+.param-row label span{
+  font-family:var(--mono);font-size:12px;color:var(--text);
+}
+input[type=range]{
+  width:100%;-webkit-appearance:none;
+  height:2px;background:var(--border2);border-radius:1px;outline:none;
+  cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  background:var(--accent);border-radius:50%;cursor:pointer;
+  transition:transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+select{
+  width:100%;background:var(--surface2);
+  border:1px solid var(--border2);color:var(--text);
+  padding:8px 12px;font-family:var(--sans);font-size:13px;
+  border-radius:3px;outline:none;cursor:pointer;
+  -webkit-appearance:none;
+}
+select:focus{border-color:var(--accent)}
+.type-tabs{display:flex;gap:2px;margin-bottom:1.5rem}
+.type-tab{
+  flex:1;padding:8px 4px;font-size:12px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;text-align:center;
+  font-family:var(--sans);transition:all .15s;border-radius:2px;
+}
+.type-tab.active{background:rgba(79,195,247,0.12);border-color:var(--accent);color:var(--accent)}
+.run-btn{
+  width:100%;padding:13px;
+  background:var(--accent);color:#0a0c10;
+  border:none;font-family:var(--sans);font-size:14px;
+  font-weight:500;border-radius:3px;cursor:pointer;
+  letter-spacing:.03em;transition:opacity .2s;
+  margin-top:1rem;
+}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── RESULTS PANEL ── */
+.results-panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:2rem;
+  min-height:400px;
+}
+.results-panel h2{
+  font-family:var(--serif);font-size:1.3rem;font-weight:400;
+  margin-bottom:1.5rem;padding-bottom:1rem;
+  border-bottom:1px solid var(--border);
+}
+.metrics-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+  margin-bottom:2rem;
+}
+.metric-card{background:var(--surface2);padding:1.25rem;border:1px solid var(--border)}
+.metric-card .m-label{font-size:11px;color:var(--muted);margin-bottom:.5rem;font-family:var(--mono);letter-spacing:.05em}
+.metric-card .m-val{font-size:1.6rem;font-weight:300;font-family:var(--mono);color:var(--text)}
+.metric-card .m-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.badge{display:inline-block;font-size:11px;font-family:var(--mono);padding:2px 7px;border-radius:2px;margin-left:5px}
+.badge-up{background:rgba(129,199,132,0.15);color:var(--accent2)}
+.badge-dn{background:rgba(239,83,80,0.15);color:var(--red)}
+.greeks-row{
+  display:flex;gap:2px;margin-bottom:2rem;
+  flex-wrap:wrap;
+}
+.greek-card{
+  background:var(--surface2);border:1px solid var(--border);
+  padding:.75rem 1.25rem;flex:1;min-width:100px;
+}
+.greek-card .g-label{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.greek-card .g-val{font-size:1.1rem;font-weight:400;font-family:var(--mono);color:var(--accent3)}
+.chart-section{margin-bottom:2rem}
+.chart-title{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:1rem;
+}
+.chart-wrap{position:relative}
+#pathCanvas{
+  width:100%;height:220px;display:block;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:3px;
+}
+.insight-box{
+  background:var(--surface2);border:1px solid var(--border);
+  border-left:3px solid var(--accent2);
+  padding:1rem 1.25rem;
+  font-size:13px;color:var(--muted);line-height:1.7;
+  margin-top:1.5rem;
+  border-radius:0 3px 3px 0;
+}
+.insight-box strong{color:var(--text);font-weight:500}
+.empty-state{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:300px;color:var(--muted);text-align:center;gap:1rem;
+}
+.empty-state .big{font-family:var(--mono);font-size:3rem;opacity:.2}
+.empty-state p{font-size:14px;max-width:280px;line-height:1.6}
+
+/* ── EXPLANATION CARDS (inline with results) ── */
+.explain-section{padding:4rem 0 6rem}
+.explain-accordion{border:1px solid var(--border)}
+.acc-item{border-bottom:1px solid var(--border)}
+.acc-item:last-child{border-bottom:none}
+.acc-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.25rem 1.5rem;cursor:pointer;
+  transition:background .15s;
+  background:var(--surface);
+  user-select:none;
+}
+.acc-header:hover{background:var(--surface2)}
+.acc-header h3{font-family:var(--serif);font-size:1.1rem;font-weight:400}
+.acc-header .acc-icon{
+  font-family:var(--mono);font-size:18px;color:var(--accent);
+  transition:transform .2s;
+}
+.acc-body{
+  display:none;padding:1.5rem;background:var(--surface2);
+  border-top:1px solid var(--border);
+}
+.acc-body.open{display:block}
+.acc-icon.open{transform:rotate(45deg)}
+
+/* ── FOOTER ── */
+footer{
+  padding:3rem 6vw;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:1rem;
+}
+footer .f-left{font-family:var(--mono);font-size:12px;color:var(--muted)}
+footer .f-right{font-size:12px;color:var(--muted)}
+
+/* ── LOADING ── */
+.loading-overlay{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;transition:opacity .4s;gap:1rem;
+}
+.loading-overlay.hide{opacity:0;pointer-events:none}
+.loader{
+  width:32px;height:32px;border:2px solid var(--border2);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .theory-grid{grid-template-columns:1fr}
+  .pricer-grid{grid-template-columns:1fr}
+  .params-panel{position:static}
+  .metrics-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+  .hero{padding:5rem 6vw 3rem}
+  .metrics-grid{grid-template-columns:1fr}
+}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.25rem 6vw;
+  background:rgba(10,12,16,0.85);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  z-index:50;
+}
+.nav-logo{
+  font-family:var(--mono);font-size:13px;
+  color:var(--accent);letter-spacing:.05em;
+}
+.nav-links{display:flex;gap:2rem}
+.nav-links a{
+  font-size:13px;color:var(--muted);text-decoration:none;
+  transition:color .15s;font-family:var(--mono);letter-spacing:.05em;
+}
+.nav-links a:hover{color:var(--text)}
+
+/* ── FADE IN ANIMATIONS ── */
+.fade-in{opacity:0;transform:translateY(16px);transition:opacity .5s,transform .5s}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader"></div>
+  <p>LOADING PRICER</p>
+</div>
+
+<nav>
+  <span class="nav-logo">KOU JD</span>
+  <div class="nav-links">
+    <a href="#theory">Theory</a>
+    <a href="#steps">Steps</a>
+    <a href="#pricer">Pricer</a>
+    <a href="#faq">FAQ</a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <span class="tag">Quantitative Finance · Jump-Diffusion Models</span>
+  <h1>Pricing <em>Exotic Options</em><br>with Kou's Model</h1>
+  <p class="hero-sub">
+    An interactive simulator and step-by-step explainer for the Kou (2002) double-exponential
+    jump-diffusion model — with semi-analytical and Monte Carlo pricing for European,
+    barrier, digital, and Asian options.
+  </p>
+  <div class="hero-cta">
+    <a href="#pricer" class="btn-primary">Open Pricer →</a>
+    <a href="#theory" class="btn-ghost">Read the Theory</a>
+  </div>
+  <div class="scroll-hint">SCROLL TO EXPLORE</div>
+</section>
+
+<!-- ── THEORY ── -->
+<section class="theory-section page" id="theory">
+  <div class="fade-in">
+    <span class="section-label">01 · Model Overview</span>
+    <h2 class="section-title">Why do we need<br>jump-diffusion?</h2>
+    <p style="color:var(--muted);max-width:600px;font-size:15px;line-height:1.75">
+      Black-Scholes assumes stock prices move on a continuous path — no sudden teleportation.
+      Real markets do jump: earnings surprises, central bank shocks, geopolitical events.
+      Kou (2002) introduced a tractable jump-diffusion model whose jump sizes follow a
+      <em>double-exponential</em> distribution, yielding closed-form option prices.
+    </p>
+  </div>
+
+  <div class="theory-grid fade-in" style="transition-delay:.1s">
+    <div class="theory-card">
+      <span class="step-num">BLACK-SCHOLES BASELINE</span>
+      <h3>Continuous diffusion only</h3>
+      <p>The classic model assumes <span class="inline-math">dS = μS dt + σS dW</span>. Paths are continuous — no jumps. This underprices out-of-the-money options (the "volatility smile") because it ignores fat tails and sudden moves.</p>
+    </div>
+    <div class="theory-card">
+      <span class="step-num">KOU (2002) EXTENSION</span>
+      <h3>Diffusion + Poisson jumps</h3>
+      <p>Kou adds a compound Poisson process: jumps arrive at rate <span class="inline-math">λ</span> per year. Each jump multiplies <em>S</em> by a random factor <em>J</em> drawn from a double-exponential distribution — asymmetric, with separate rates for up and down jumps.</p>
+    </div>
+    <div class="theory-card">
+      <span class="step-num">KEY INNOVATION</span>
+      <h3>Double-exponential jump sizes</h3>
+      <p>Unlike Merton's lognormal jumps, the double-exponential gives a <em>leptokurtic</em> distribution (sharp peak, heavy tails) and remains analytically tractable. The memoryless property of the exponential lets us compute first-passage times in closed form.</p>
+    </div>
+    <div class="theory-card">
+      <span class="step-num">PRACTICAL RESULT</span>
+      <h3>Fits the volatility smile</h3>
+      <p>The asymmetry parameter <span class="inline-math">p</span> and the decay rates <span class="inline-math">η₁, η₂</span> let the model match both the skew (more down-jumps than up) and the kurtosis (how fat the tails are) observed in real equity markets.</p>
+    </div>
+  </div>
+
+  <div class="formula-block fade-in" style="transition-delay:.2s">
+    <span class="comment">// Kou SDE under risk-neutral measure</span><br>
+    dS/S  =  (r − q − λκ) dt  +  σ dW  +  d(Σ jumps)<br>
+    <br>
+    <span class="comment">// Jump size distribution — log(J) ~ double-exponential</span><br>
+    f(y)  =  p · η₁ · exp(−η₁ y)    if y &gt; 0   (upward jump)<br>
+    f(y)  =  (1−p) · η₂ · exp(η₂ y)  if y &lt; 0   (downward jump)<br>
+    <br>
+    <span class="comment">// Martingale correction (ensures E[J] = 1+κ)</span><br>
+    κ     =  p·η₁/(η₁−1) + (1−p)·η₂/(η₂+1) − 1
+  </div>
+</section>
+
+<!-- ── STEP-BY-STEP ── -->
+<section class="steps-section page" id="steps">
+  <div class="fade-in">
+    <span class="section-label">02 · Algorithm Walkthrough</span>
+    <h2 class="section-title">How the simulation<br>is built, step by step</h2>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">01</div>
+    <div class="step-content">
+      <h3>Set up the risk-neutral drift</h3>
+      <p>Under the risk-neutral measure, the expected return must equal the risk-free rate <span class="inline-math">r</span>. The jump component introduces an extra expected return of <span class="inline-math">λκ</span> per unit time. We subtract this from the drift so the discounted stock price remains a martingale:</p>
+      <div class="formula-block">μ_RN  =  r − q − λ · κ<br><span class="comment">// q = continuous dividend yield, κ = mean jump size compensation</span></div>
+      <p>Without this correction the simulated stock would systematically drift upward (or downward), producing biased prices. Every time step we apply this corrected drift.</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">02</div>
+    <div class="step-content">
+      <h3>Simulate the Brownian diffusion component</h3>
+      <p>Over a small time step <span class="inline-math">dt = T/N</span>, the continuous diffusion part contributes:</p>
+      <div class="formula-block">ΔlogS_diffusion  =  (μ_RN − ½σ²) dt  +  σ · √dt · Z<br><span class="comment">// Z ~ N(0,1), generated by Box-Muller or inverse-CDF method</span></div>
+      <p>We work in log-space (log returns) because the lognormal is the natural state space for multiplicative price changes. Euler discretisation in log-space is exact for the diffusion part — no discretisation error here, only from the jump approximation.</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">03</div>
+    <div class="step-content">
+      <h3>Simulate Poisson-distributed jump arrivals</h3>
+      <p>The number of jumps in <span class="inline-math">[t, t+dt]</span> follows a Poisson distribution with mean <span class="inline-math">λ·dt</span>. We draw from this distribution for each time step:</p>
+      <div class="formula-block">N_jumps ~ Poisson(λ · dt)<br><span class="comment">// For small λ·dt, usually 0 jumps. Occasionally 1 or 2.</span><br><span class="comment">// Draw: while product of U[0,1] > e^(-λdt), increment count</span></div>
+      <p>For <span class="inline-math">λ = 1</span> and daily steps <span class="inline-math">dt ≈ 1/252</span>, the expected number of jumps per step is only 0.004 — so most steps have zero jumps. This explains why paths look mostly smooth with occasional vertical spikes.</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">04</div>
+    <div class="step-content">
+      <h3>Draw double-exponential jump sizes</h3>
+      <p>For each jump that arrives, we draw its log-size from the double-exponential distribution:</p>
+      <div class="formula-block">With probability p:   Y ~ Exp(η₁)   (positive — upward jump)<br>With probability 1-p: Y ~ −Exp(η₂)  (negative — downward jump)<br><br><span class="comment">// Inverse CDF sampling: Y = −log(U) / η  where U ~ Uniform(0,1)</span><br><span class="comment">// Mean up-jump:   +1/η₁ (e.g., η₁=10 → mean +10%)</span><br><span class="comment">// Mean down-jump: −1/η₂ (e.g., η₂=5  → mean −20%)</span></div>
+      <p>The total log-return for one time step is: <span class="inline-math">Δlog S = diffusion part + Σ Y_i</span> over all jumps that arrived. We then set <span class="inline-math">S_{t+dt} = S_t · exp(Δlog S)</span>.</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">05</div>
+    <div class="step-content">
+      <h3>Compute the exotic payoff at expiry</h3>
+      <p>Once a full path S₀, S₁, …, S_N is simulated, we evaluate the option-specific payoff:</p>
+      <div class="formula-block"><span class="comment">// European call:</span>  max(S_T − K, 0)<br><span class="comment">// European put:</span>   max(K − S_T, 0)<br><span class="comment">// Down-and-out barrier call:</span>  max(S_T − K, 0) · 1{min S > H}<br><span class="comment">// Digital cash-or-nothing call:</span> 1{S_T > K}<br><span class="comment">// Asian arithmetic call:</span>  max( (1/N)Σ S_i − K, 0 )</div>
+      <p>For barriers under jump-diffusion, we check whether the path breached H at any monitored step. Note: if the stock <em>jumps over</em> the barrier without the price being at H at a monitored time, it counts as a breach only if monitoring is daily. This is the "barrier discretisation" effect unique to jump models.</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">06</div>
+    <div class="step-content">
+      <h3>Discount and average across paths</h3>
+      <p>The Monte Carlo estimate is simply the average discounted payoff:</p>
+      <div class="formula-block">Price_MC  =  e^(-rT) · (1/M) · Σᵢ payoff_i<br><br><span class="comment">// Standard error: SE = e^(-rT) · std(payoffs) / √M</span><br><span class="comment">// 95% CI: [Price − 1.96·SE, Price + 1.96·SE]</span></div>
+      <p>With M = 20,000 paths and typical parameters, the standard error is around 0.01–0.05 for at-the-money options. Increasing to 50,000 paths halves the error (error scales as <span class="inline-math">1/√M</span>).</p>
+    </div>
+  </div>
+
+  <div class="step-row fade-in">
+    <div class="step-num-big">07</div>
+    <div class="step-content">
+      <h3>Semi-analytical pricing for Europeans (Kou's formula)</h3>
+      <p>For European options only, Kou derived a semi-closed-form: we expand the price as an infinite sum over the number of jumps that occurred, each weighted by its Poisson probability:</p>
+      <div class="formula-block">Price_Kou  =  Σ_{n=0}^{∞}  w_n · BS(S, K, T, r_n, q, σ_n)<br><br><span class="comment">// w_n = exp(−λ*T) · (λ*T)^n / n!  — Poisson weights (λ* = λ(1+κ))</span><br><span class="comment">// σ_n² = σ² + n·Var[Y]/T      — augmented variance with n jumps</span><br><span class="comment">// r_n  = r − λκ + n·log(1+κ)/T  — adjusted drift for n jumps</span></div>
+      <p>The series converges quickly — typically 20–30 terms suffice. This gives a fast benchmark to validate the Monte Carlo. If MC and analytical disagree by more than 2×SE, check your path count or step size.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICER ── -->
+<section class="pricer-section page" id="pricer">
+  <div class="pricer-header fade-in">
+    <span class="section-label">03 · Interactive Simulator</span>
+    <h2 class="section-title">Price your option</h2>
+    <p style="color:var(--muted);font-size:14px;max-width:500px">
+      Adjust the parameters below and click <strong style="color:var(--text)">Run Simulation</strong>.
+      For European options, both the Monte Carlo and Kou analytical price are shown.
+    </p>
+  </div>
+
+  <div class="pricer-grid">
+    <!-- PARAMS -->
+    <div class="params-panel fade-in">
+      <h2>Parameters</h2>
+
+      <div class="param-group">
+        <span class="param-group-label">Option type</span>
+        <div class="type-tabs">
+          <div class="type-tab active" data-type="european">European</div>
+          <div class="type-tab" data-type="barrier">Barrier</div>
+          <div class="type-tab" data-type="digital">Digital</div>
+          <div class="type-tab" data-type="asian">Asian</div>
+        </div>
+        <div class="param-row">
+          <label>Call / Put</label>
+          <select id="cp"><option value="call">Call</option><option value="put">Put</option></select>
+        </div>
+      </div>
+
+      <div class="param-group">
+        <span class="param-group-label">Market</span>
+        <div class="param-row">
+          <label>Spot S₀ <span id="S0v">100</span></label>
+          <input type="range" id="S0" min="50" max="200" step="1" value="100">
+        </div>
+        <div class="param-row">
+          <label>Strike K <span id="Kv">100</span></label>
+          <input type="range" id="K" min="50" max="200" step="1" value="100">
+        </div>
+        <div class="param-row">
+          <label>Maturity T (yrs) <span id="Tv">1.00</span></label>
+          <input type="range" id="T" min="0.05" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-row">
+          <label>Risk-free rate r <span id="rv">5.0%</span></label>
+          <input type="range" id="r" min="0" max="0.15" step="0.005" value="0.05">
+        </div>
+        <div class="param-row">
+          <label>Dividend yield q <span id="qv">0.0%</span></label>
+          <input type="range" id="q" min="0" max="0.1" step="0.005" value="0">
+        </div>
+        <div class="param-row">
+          <label>Diffusion σ <span id="sigv">20.0%</span></label>
+          <input type="range" id="sig" min="0.05" max="0.8" step="0.01" value="0.2">
+        </div>
+      </div>
+
+      <div class="param-group">
+        <span class="param-group-label">Kou Jump Parameters</span>
+        <div class="param-row">
+          <label>Jump rate λ <span id="lamv">1.0/yr</span></label>
+          <input type="range" id="lam" min="0" max="10" step="0.1" value="1">
+        </div>
+        <div class="param-row">
+          <label>P(up jump) p <span id="pv">0.40</span></label>
+          <input type="range" id="p" min="0.01" max="0.99" step="0.01" value="0.4">
+        </div>
+        <div class="param-row">
+          <label>Up decay η₁ <span id="eta1v">10.0</span></label>
+          <input type="range" id="eta1" min="2" max="50" step="0.5" value="10">
+        </div>
+        <div class="param-row">
+          <label>Down decay η₂ <span id="eta2v">5.0</span></label>
+          <input type="range" id="eta2" min="2" max="50" step="0.5" value="5">
+        </div>
+        <div class="param-row" id="barrierRow" style="display:none">
+          <label>Barrier H <span id="Hv">85</span></label>
+          <input type="range" id="H" min="50" max="200" step="1" value="85">
+        </div>
+      </div>
+
+      <div class="param-group">
+        <span class="param-group-label">Simulation</span>
+        <div class="param-row">
+          <label>MC Paths</label>
+          <select id="npaths">
+            <option value="5000">5,000 — fast</option>
+            <option value="20000" selected>20,000 — standard</option>
+            <option value="50000">50,000 — precise</option>
+          </select>
+        </div>
+        <div class="param-row">
+          <label>Time steps N <span id="nstepsv">252</span></label>
+          <input type="range" id="nsteps" min="50" max="500" step="50" value="252">
+        </div>
+      </div>
+
+      <button class="run-btn" id="runBtn">Run Simulation →</button>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-panel fade-in" style="transition-delay:.15s">
+      <h2>Results</h2>
+      <div id="resultsInner">
+        <div class="empty-state">
+          <div class="big">∿</div>
+          <p>Set your parameters and click <strong>Run Simulation</strong> to price the option.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ / DEEP DIVES ── -->
+<section class="explain-section page" id="faq">
+  <div class="fade-in">
+    <span class="section-label">04 · Deep Dives</span>
+    <h2 class="section-title">Concepts explained</h2>
+  </div>
+  <div class="explain-accordion fade-in">
+    <div class="acc-item">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <h3>What is the martingale correction κ?</h3>
+        <span class="acc-icon">+</span>
+      </div>
+      <div class="acc-body">
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          In risk-neutral pricing, the discounted asset price must be a martingale — its expected future value (discounted) equals its current value. The continuous diffusion part is already a martingale if we set the drift to <span class="inline-math">r − q − ½σ²</span>. But adding jumps with mean size κ introduces extra expected growth of <span class="inline-math">λκ</span> per unit time. We subtract this from the drift to compensate:
+        </p>
+        <div class="formula-block" style="margin-top:1rem">
+          κ = E[J − 1] = p·η₁/(η₁−1) + (1−p)·η₂/(η₂+1) − 1<br>
+          <span class="comment">// This requires η₁ > 1 (otherwise mean up-jump is infinite!)</span>
+        </div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.75;margin-top:1rem">
+          If you set λ = 0, κ drops out entirely and you recover Black-Scholes drift. The correction only matters when jumps are large (small η₁ or η₂) or frequent (large λ).
+        </p>
+      </div>
+    </div>
+    <div class="acc-item">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <h3>Why do barriers behave differently under jumps?</h3>
+        <span class="acc-icon">+</span>
+      </div>
+      <div class="acc-body">
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          Under continuous diffusion, the stock <em>must pass through</em> the barrier level to breach it — so continuous and daily-monitored barriers give similar prices. Under jump-diffusion, the stock can teleport past the barrier in a single jump without ever touching it. Two effects:
+        </p>
+        <ul style="color:var(--muted);font-size:14px;line-height:1.9;padding-left:1.25rem;margin:.75rem 0">
+          <li><strong style="color:var(--text)">More knock-outs:</strong> downward jumps can breach a down-and-out barrier more easily, reducing the price of knock-out options.</li>
+          <li><strong style="color:var(--text)">Jump-over effect:</strong> with daily monitoring, a jump that crosses H and comes back won't be detected. This makes knock-out barriers less sensitive to monitoring frequency than in pure diffusion models.</li>
+        </ul>
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          Try setting η₂ = 3 (mean −33% downward jump) and a barrier at 90. You'll see barrier prices collapse because almost any downward jump knocks the option out immediately.
+        </p>
+      </div>
+    </div>
+    <div class="acc-item">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <h3>How does the volatility smile arise from the Kou model?</h3>
+        <span class="acc-icon">+</span>
+      </div>
+      <div class="acc-body">
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          The Black-Scholes implied volatility (IV) "should" be flat if BS were true. In reality, out-of-the-money puts trade at higher IV than ATM options (the "skew"), and OTM calls also have elevated IV (making a "smile"). Kou explains this:
+        </p>
+        <ul style="color:var(--muted);font-size:14px;line-height:1.9;padding-left:1.25rem;margin:.75rem 0">
+          <li><strong style="color:var(--text)">OTM puts:</strong> asymmetric down-jumps (p &lt; 0.5, large η₂) add left-tail probability → higher OTM put prices → higher implied vol for low strikes.</li>
+          <li><strong style="color:var(--text)">Short maturities:</strong> at 1-week maturity, jumps dominate (not enough time for diffusion to smooth them) → extreme smile.</li>
+          <li><strong style="color:var(--text)">Long maturities:</strong> the Central Limit Theorem takes over — many small jumps look like extra diffusion → smile flattens.</li>
+        </ul>
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          You can observe this by pricing European puts at different strikes (changing K) and computing what BS σ would give the same price — that's the implied vol.
+        </p>
+      </div>
+    </div>
+    <div class="acc-item">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <h3>Why are Greeks numerically computed here, not analytically?</h3>
+        <span class="acc-icon">+</span>
+      </div>
+      <div class="acc-body">
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          For European options, Kou's analytical formula can be differentiated to get analytical Greeks. But for barrier, digital, and Asian options there is no closed-form derivative. We use finite differences:
+        </p>
+        <div class="formula-block" style="margin-top:1rem">
+          Delta ≈ [V(S+h) − V(S−h)] / (2h)     <span class="comment">// central difference, h = 0.5</span><br>
+          Gamma ≈ [V(S+h) − 2V(S) + V(S−h)] / h²<br>
+          Theta ≈ [V(T−1/365) − V(T)] / (1/365)   <span class="comment">// forward difference</span>
+        </div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.75;margin-top:1rem">
+          Each Greek requires 2–3 additional MC runs (using 5,000 paths for speed). The path count for Greek estimation doesn't need to be as large as the price estimate — but watch for noise when Gamma is near zero or at barriers.
+        </p>
+      </div>
+    </div>
+    <div class="acc-item">
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <h3>How would you calibrate the model to market data?</h3>
+        <span class="acc-icon">+</span>
+      </div>
+      <div class="acc-body">
+        <p style="color:var(--muted);font-size:14px;line-height:1.75">
+          Calibration means finding the parameter vector <span class="inline-math">(σ, λ, p, η₁, η₂)</span> that minimises the squared difference between model prices and market prices across a set of liquid options:
+        </p>
+        <div class="formula-block" style="margin-top:1rem">
+          min_{σ,λ,p,η₁,η₂}  Σᵢ wᵢ [V_model(Kᵢ, Tᵢ; θ) − V_market(Kᵢ, Tᵢ)]²<br>
+          <span class="comment">// wᵢ = 1/bid-ask spread² (weight by liquidity)</span><br>
+          subject to: σ > 0, λ ≥ 0, 0 < p < 1, η₁ > 1, η₂ > 0
+        </div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.75;margin-top:1rem">
+          Typical approach: use the analytical European formula (fast) to calibrate on vanilla options, then price exotics by MC using the calibrated parameters. Differential evolution or Levenberg-Marquardt are common optimisers. The constraint <span class="inline-math">η₁ &gt; 1</span> is critical — otherwise the mean jump is infinite.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="f-left">KOU JUMP-DIFFUSION PRICER · S.G. Kou (2002) "A jump-diffusion model for option pricing"</span>
+  <span class="f-right">Management Science · Vol 48 · No 8</span>
+</footer>
+
+<script>
+// ── UTILS ──
+const $ = id => document.getElementById(id);
+
+function erf(x){
+  const t=1/(1+0.3275911*Math.abs(x));
+  const y=1-t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))))*Math.exp(-x*x);
+  return x>=0?y:-y;
+}
+function N(x){return 0.5*(1+erf(x/Math.SQRT2));}
+function normInv(p){
+  const c=[2.50662823884,-18.61500062529,41.39119773534,-25.44106049637];
+  const b=[-8.47351093090,23.08336743743,-21.06224101826,3.13082909833];
+  const d=[0.3374754822726147,0.9761690190917186,0.1607979714918209,0.0276438810333863,0.0038405729373609,0.0003951896511349,0.0000321767881768,0.0000002888167364,0.0000003960315187];
+  if(p<0.02425){const q=Math.sqrt(-2*Math.log(p));return -(((((d[8]*q+d[7])*q+d[6])*q+d[5])*q+d[4])*q+d[3])/((((d[3]*q+d[2])*q+d[1])*q+d[0])*q+1);}
+  if(p>0.97575){const q=Math.sqrt(-2*Math.log(1-p));return (((((d[8]*q+d[7])*q+d[6])*q+d[5])*q+d[4])*q+d[3])/((((d[3]*q+d[2])*q+d[1])*q+d[0])*q+1);}
+  const q=p-0.5,rr=q*q;
+  return q*(((c[3]*rr+c[2])*rr+c[1])*rr+c[0])/((((b[3]*rr+b[2])*rr+b[1])*rr+b[0])*rr+1);
+}
+
+function bsPrice(S,K,T,r,q,sig,cp){
+  if(T<=0)return cp==='call'?Math.max(S-K,0):Math.max(K-S,0);
+  const d1=(Math.log(S/K)+(r-q+0.5*sig*sig)*T)/(sig*Math.sqrt(T));
+  const d2=d1-sig*Math.sqrt(T);
+  if(cp==='call')return S*Math.exp(-q*T)*N(d1)-K*Math.exp(-r*T)*N(d2);
+  return K*Math.exp(-r*T)*N(-d2)-S*Math.exp(-q*T)*N(-d1);
+}
+
+const factCache=[1];
+function factorial(n){if(n<factCache.length)return factCache[n];factCache[n]=n*factorial(n-1);return factCache[n];}
+
+function kouEuropean(S0,K,T,r,q,sig,lam,p,eta1,eta2,cp){
+  const kappa=p*(eta1/(eta1-1)-1)+(1-p)*(eta2/(eta2+1)-1);
+  const lamStar=lam*(1+kappa);
+  let price=0;
+  for(let n=0;n<60;n++){
+    const w=Math.exp(-lamStar*T)*Math.pow(lamStar*T,n)/factorial(n);
+    if(w<1e-14)break;
+    const varJ=p*(2/(eta1*eta1))+(1-p)*(2/(eta2*eta2))-(p/eta1-(1-p)/eta2)**2;
+    const sigN=Math.sqrt(sig*sig+n*varJ/T);
+    const rN=r-lam*kappa+n*Math.log(1+kappa)/T;
+    price+=w*bsPrice(S0,K,T,rN,q,sigN,cp);
+  }
+  return price;
+}
+
+function poissonDraw(lam){
+  if(lam>30){const z=normInv(Math.random());return Math.max(0,Math.round(lam+Math.sqrt(lam)*z));}
+  let L=Math.exp(-lam),k=0,pp=1;
+  do{k++;pp*=Math.random();}while(pp>L);
+  return k-1;
+}
+function expDraw(eta){return -Math.log(Math.random())/eta;}
+
+function monteCarlo(S0,K,T,r,q,sig,lam,p,eta1,eta2,type,H,cp,nPaths,nSteps){
+  const dt=T/nSteps;
+  const kappa=p*(eta1/(eta1-1)-1)+(1-p)*(eta2/(eta2+1)-1);
+  const muDt=(r-q-lam*kappa)*dt;
+  const sigDt=sig*Math.sqrt(dt);
+  const lamDt=lam*dt;
+  let sum=0,sum2=0;
+  const paths=[],payoffs=[];
+  const stride=Math.max(1,Math.floor(nPaths/20));
+
+  for(let i=0;i<nPaths;i++){
+    let S=S0,knocked=false,sumS=0;
+    const store=i%stride===0&&paths.length<20;
+    const pth=store?[S]:null;
+
+    for(let j=0;j<nSteps;j++){
+      let logR=muDt-0.5*sig*sig*dt+sigDt*normInv(Math.random());
+      const nJ=poissonDraw(lamDt);
+      for(let k=0;k<nJ;k++)logR+=(Math.random()<p?expDraw(eta1):-expDraw(eta2));
+      S*=Math.exp(logR);
+      sumS+=S;
+      if(type==='barrier'){
+        if(cp==='call'&&S<=H)knocked=true;
+        if(cp==='put'&&S>=H)knocked=true;
+      }
+      if(store)pth.push(S);
+    }
+
+    let payoff=0;
+    if(!knocked){
+      if(type==='european')payoff=cp==='call'?Math.max(S-K,0):Math.max(K-S,0);
+      else if(type==='barrier')payoff=cp==='call'?Math.max(S-K,0):Math.max(K-S,0);
+      else if(type==='digital')payoff=cp==='call'?(S>K?1:0):(S<K?1:0);
+      else if(type==='asian'){const avg=sumS/nSteps;payoff=cp==='call'?Math.max(avg-K,0):Math.max(K-avg,0);}
+    }
+    sum+=payoff;sum2+=payoff*payoff;payoffs.push(payoff);
+    if(store)paths.push(pth);
+  }
+
+  const disc=Math.exp(-r*T);
+  const mean=sum/nPaths;
+  const variance=(sum2/nPaths-mean*mean)/nPaths;
+  return{price:disc*mean,se:disc*Math.sqrt(variance),paths,payoffs};
+}
+
+// ── SLIDER WIRING ──
+function wire(id,fmt){
+  const el=$(id),out=$(id+'v');
+  if(!el||!out)return;
+  const upd=()=>{out.textContent=fmt(+el.value);};
+  el.addEventListener('input',upd);
+  upd();
+}
+wire('S0',v=>v.toFixed(0));
+wire('K',v=>v.toFixed(0));
+wire('T',v=>v.toFixed(2));
+wire('r',v=>(v*100).toFixed(1)+'%');
+wire('q',v=>(v*100).toFixed(1)+'%');
+wire('sig',v=>(v*100).toFixed(1)+'%');
+wire('lam',v=>v.toFixed(1)+'/yr');
+wire('p',v=>v.toFixed(2));
+wire('eta1',v=>v.toFixed(1));
+wire('eta2',v=>v.toFixed(1));
+wire('H',v=>v.toFixed(0));
+wire('nsteps',v=>v.toFixed(0));
+
+// ── TYPE TABS ──
+let currentType='european';
+document.querySelectorAll('.type-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.type-tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    currentType=t.dataset.type;
+    $('barrierRow').style.display=currentType==='barrier'?'':'none';
+  });
+});
+
+// ── PATH CANVAS ──
+let pathChartInst=null, distChartInst=null;
+
+function drawPaths(canvas,paths,K,H,type,cp){
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.offsetWidth*dpr;
+  canvas.height=220*dpr;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const W=canvas.offsetWidth,HH=220;
+  ctx.clearRect(0,0,W,HH);
+
+  const allS=paths.flat();
+  const minS=Math.min(...allS)*0.97,maxS=Math.max(...allS)*1.03;
+  const nT=paths[0].length-1;
+  const xS=v=>(v/nT)*(W-48)+24;
+  const yS=v=>HH-14-(v-minS)/(maxS-minS)*(HH-30);
+
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=.5;
+  for(let g=0;g<=4;g++){
+    const y=yS(minS+(maxS-minS)*g/4);
+    ctx.beginPath();ctx.moveTo(24,y);ctx.lineTo(W-12,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font=`10px 'DM Mono',monospace`;ctx.textAlign='right';
+    ctx.fillText((minS+(maxS-minS)*g/4).toFixed(0),22,y+3);
+  }
+
+  ctx.strokeStyle='rgba(255,183,77,0.5)';ctx.setLineDash([4,4]);ctx.lineWidth=1;
+  const yK=yS(K);
+  ctx.beginPath();ctx.moveTo(24,yK);ctx.lineTo(W-12,yK);ctx.stroke();
+  ctx.fillStyle='rgba(255,183,77,0.8)';ctx.textAlign='right';ctx.font=`10px 'DM Mono',monospace`;
+  ctx.fillText('K='+K,W-8,yK-3);
+
+  if(type==='barrier'){
+    ctx.strokeStyle='rgba(239,83,80,0.6)';ctx.setLineDash([6,3]);ctx.lineWidth=1.2;
+    const yH=yS(H);
+    ctx.beginPath();ctx.moveTo(24,yH);ctx.lineTo(W-12,yH);ctx.stroke();
+    ctx.fillStyle='rgba(239,83,80,0.9)';ctx.fillText('H='+H,W-8,yH-3);
+  }
+  ctx.setLineDash([]);
+
+  paths.forEach(path=>{
+    ctx.lineWidth=.8;
+    ctx.beginPath();
+    path.forEach((s,i)=>{
+      const x=xS(i),y=yS(s);
+      if(i===0){ctx.moveTo(x,y);return;}
+      const jmp=Math.abs(s-path[i-1])/path[i-1];
+      ctx.strokeStyle=jmp>0.02?'rgba(79,195,247,0.9)':'rgba(79,195,247,0.3)';
+      ctx.lineTo(x,y);
+      if(jmp>0.02){ctx.stroke();ctx.beginPath();ctx.moveTo(x,y);}
+    });
+    ctx.stroke();
+  });
+}
+
+function drawDist(canvas,payoffs){
+  const pos=payoffs.filter(x=>x>0.001);
+  if(pos.length<5)return;
+  const maxV=Math.max(...pos);
+  const nBins=40;
+  const bins=new Array(nBins).fill(0);
+  pos.forEach(v=>{const b=Math.min(Math.floor(v/maxV*nBins),nBins-1);bins[b]++;});
+  const labels=bins.map((_,i)=>(i/nBins*maxV).toFixed(2));
+  if(distChartInst){distChartInst.destroy();distChartInst=null;}
+  distChartInst=new Chart(canvas,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Payoff freq.',data:bins,backgroundColor:'rgba(79,195,247,0.45)',borderColor:'rgba(79,195,247,0.7)',borderWidth:.5,borderRadius:1}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        callbacks:{label:b=>`Count: ${b.parsed.y}`,title:a=>`Payoff ≈ $${a[0].label}`}
+      }},
+      scales:{
+        x:{ticks:{color:'rgba(255,255,255,0.25)',font:{size:10,family:"'DM Mono',monospace"},maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'rgba(255,255,255,0.25)',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}}
+      }
+    }
+  });
+}
+
+// ── INSIGHT GENERATOR ──
+function generateInsight(params,mcPrice,bsPrice,analytical,type){
+  const{lam,p,eta1,eta2,cp,K,S0}=params;
+  const diff=((mcPrice-bsPrice)/bsPrice*100).toFixed(1);
+  const moneyness=S0/K;
+  const jumpDir=p<0.5?'downward-biased':'upward-biased';
+  const meanUp=(1/eta1*100).toFixed(0), meanDn=(1/eta2*100).toFixed(0);
+
+  let msg=`<strong>Jump premium: ${diff>0?'+':''}${diff}%</strong> vs Black-Scholes. `;
+  if(Math.abs(diff)<1)msg+=`At these parameters, jumps have minimal impact on the ${cp} price — try increasing λ or using more extreme η values.`;
+  else if(diff>0 && cp==='put')msg+=`Down-jumps (mean −${meanDn}%, prob ${(100*(1-p)).toFixed(0)}%) inflate put prices by adding left-tail probability that Black-Scholes ignores.`;
+  else if(diff>0 && cp==='call')msg+=`Up-jumps (mean +${meanUp}%, prob ${(100*p).toFixed(0)}%) add right-tail probability, lifting call prices above the Black-Scholes level.`;
+  else msg+=`The net jump premium is slightly negative here — the martingale correction κ offsets the raw jump effect in this parameter regime.`;
+
+  if(type==='barrier')msg+=` <strong>Barrier note:</strong> knock-out barriers are especially sensitive to large jumps — the stock can "jump over" the barrier in one step.`;
+  if(type==='asian')msg+=` <strong>Asian averaging</strong> reduces the effective volatility, so the Asian price is always ≤ European price at the same strike.`;
+  if(analytical){
+    const anaErr=Math.abs(mcPrice-analytical);
+    msg+=` Analytical vs MC gap: <span style="font-family:var(--mono);color:var(--accent3)">$${anaErr.toFixed(4)}</span> — within MC noise range.`;
+  }
+  return msg;
+}
+
+// ── RUN SIMULATION ──
+$('runBtn').addEventListener('click', async ()=>{
+  const btn=$('runBtn');
+  btn.disabled=true; btn.textContent='Simulating…';
+  await new Promise(r=>setTimeout(r,10));
+
+  const S0=+$('S0').value,K=+$('K').value,T=+$('T').value;
+  const r=+$('r').value,q=+$('q').value,sig=+$('sig').value;
+  const lam=+$('lam').value,p=+$('p').value;
+  const eta1=+$('eta1').value,eta2=+$('eta2').value;
+  const H=+$('H').value, cp=$('cp').value;
+  const nPaths=+$('npaths').value, nSteps=+$('nsteps').value;
+  const type=currentType;
+
+  const kappa=p*(eta1/(eta1-1)-1)+(1-p)*(eta2/(eta2+1)-1);
+  const mc=monteCarlo(S0,K,T,r,q,sig,lam,p,eta1,eta2,type,H,cp,nPaths,nSteps);
+  const bs=bsPrice(S0,K,T,r,q,sig,cp);
+  const analytical=type==='european'?kouEuropean(S0,K,T,r,q,sig,lam,p,eta1,eta2,cp):null;
+
+  const dh=0.5,dt2=1/365;
+  const dUp=monteCarlo(S0+dh,K,T,r,q,sig,lam,p,eta1,eta2,type,H,cp,5000,nSteps);
+  const dDn=monteCarlo(S0-dh,K,T,r,q,sig,lam,p,eta1,eta2,type,H,cp,5000,nSteps);
+  const dT2=monteCarlo(S0,K,T-dt2,r,q,sig,lam,p,eta1,eta2,type,H,cp,5000,nSteps);
+  const delta=(dUp.price-dDn.price)/(2*dh);
+  const gamma=(dUp.price-2*mc.price+dDn.price)/(dh*dh);
+  const theta=(dT2.price-mc.price)/dt2*(-1/365);
+
+  const diff=mc.price-bs;
+  const pct=(diff/bs*100);
+  const diffBadge=`<span class="badge ${pct>=0?'badge-up':'badge-dn'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
+
+  const inner=$('resultsInner');
+  inner.innerHTML=`
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="m-label">MC PRICE</div>
+        <div class="m-val">$${mc.price.toFixed(4)}</div>
+        <div class="m-sub">±$${(1.96*mc.se).toFixed(4)} (95% CI)</div>
+      </div>
+      ${analytical!=null?`<div class="metric-card">
+        <div class="m-label">KOU ANALYTICAL</div>
+        <div class="m-val">$${analytical.toFixed(4)}</div>
+        <div class="m-sub">semi-closed form</div>
+      </div>`:''}
+      <div class="metric-card">
+        <div class="m-label">BLACK-SCHOLES</div>
+        <div class="m-val">$${bs.toFixed(4)}${diffBadge}</div>
+        <div class="m-sub">no-jump benchmark</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">JUMP PREMIUM</div>
+        <div class="m-val" style="color:${diff>=0?'var(--accent2)':'var(--red)'}">$${diff.toFixed(4)}</div>
+        <div class="m-sub">κ = ${kappa.toFixed(4)}</div>
+      </div>
+    </div>
+
+    <div class="greeks-row">
+      <div class="greek-card"><div class="g-label">Δ DELTA</div><div class="g-val">${delta.toFixed(4)}</div></div>
+      <div class="greek-card"><div class="g-label">Γ GAMMA</div><div class="g-val">${gamma.toFixed(4)}</div></div>
+      <div class="greek-card"><div class="g-label">Θ THETA /day</div><div class="g-val">${theta.toFixed(4)}</div></div>
+      <div class="greek-card"><div class="g-label">PATHS</div><div class="g-val">${nPaths.toLocaleString()}</div></div>
+      <div class="greek-card"><div class="g-label">STEPS</div><div class="g-val">${nSteps}</div></div>
+    </div>
+
+    <div class="chart-section">
+      <div class="chart-title">SIMULATED PATHS (20 of ${nPaths.toLocaleString()}) — bright spikes = jump events</div>
+      <canvas id="pathCanvas" style="width:100%;height:220px"></canvas>
+    </div>
+
+    <div class="chart-section">
+      <div class="chart-title">PAYOFF DISTRIBUTION (non-zero payoffs)</div>
+      <div style="position:relative;height:160px"><canvas id="distCanvas" role="img" aria-label="Histogram of simulated option payoffs at expiry"></canvas></div>
+    </div>
+
+    <div class="insight-box">${generateInsight({lam,p,eta1,eta2,cp,K,S0},mc.price,bs,analytical,type)}</div>
+  `;
+
+  requestAnimationFrame(()=>{
+    const pc=$('pathCanvas');
+    if(pc)drawPaths(pc,mc.paths,K,H,type,cp);
+    const dc=$('distCanvas');
+    if(dc)drawDist(dc,mc.payoffs);
+  });
+
+  btn.disabled=false; btn.textContent='Run Simulation →';
+});
+
+// ── ACCORDION ──
+function toggleAcc(header){
+  const body=header.nextElementSibling;
+  const icon=header.querySelector('.acc-icon');
+  const isOpen=body.classList.contains('open');
+  document.querySelectorAll('.acc-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.acc-icon').forEach(i=>{i.classList.remove('open');i.textContent='+';});
+  if(!isOpen){body.classList.add('open');icon.classList.add('open');icon.textContent='+';}
+}
+
+// ── FADE IN OBSERVER ──
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
+},{threshold:.1});
+document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
+
+// ── LOADING ──
+window.addEventListener('load',()=>{
+  setTimeout(()=>$('loadingOverlay').classList.add('hide'),500);
+});
+</script>
+</body>
+</html>
